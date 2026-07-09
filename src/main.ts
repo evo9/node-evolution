@@ -40,31 +40,36 @@ app.get('/bookings', async (req, res) => {
 });
 
 app.post('/bookings', async (req, res) => {
-    const body = await parseBody<Omit<Booking, 'id' | 'enabled'>>(req);
-    if (!body.slotId || !body.userId) {
+    try {
+        const body = await parseBody<Omit<Booking, 'id' | 'enabled'>>(req);
+        if (!body.slotId || !body.userId) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({message: 'Invalid booking data'}));
+            return;
+        }
+
+        const existed = Array.from(bookings.values()).find((b) => b.enabled && b.slotId === body.slotId);
+        if (existed) {
+            res.statusCode = 409;
+            res.end(JSON.stringify({message: `Slot #${body.slotId} already booked`}));
+            return;
+        }
+
+        const created = {
+            id: crypto.randomUUID(),
+            slotId: body.slotId,
+            userId: body.userId,
+            enabled: true,
+        };
+
+        bookings.set(created.id, created);
+
+        res.statusCode = 201;
+        res.end(JSON.stringify(created));
+    } catch (e) {
         res.statusCode = 400;
-        res.end(JSON.stringify({message: 'Invalid booking data'}));
-        return;
+        res.end(JSON.stringify({message: 'Invalid json body'}));
     }
-
-    const existed = Array.from(bookings.values()).find((b) => b.slotId === body.slotId && b.userId === body.userId);
-    if (existed) {
-        res.statusCode = 400;
-        res.end(JSON.stringify({message: `User #${body.userId} already booked to slot #${body.slotId}`}));
-        return;
-    }
-
-    const created = {
-        id: crypto.randomUUID(),
-        slotId: body.slotId,
-        userId: body.userId,
-        enabled: true,
-    };
-
-    bookings.set(created.id, created);
-
-    res.statusCode = 201;
-    res.end(JSON.stringify(created));
 });
 
 app.get('/bookings/:id', async (req, res) => {
