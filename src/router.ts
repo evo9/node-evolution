@@ -2,7 +2,7 @@ import { ServerResponse } from 'node:http';
 import {Request} from './server.js';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-export type RouteHandler = (req: Request, res: ServerResponse) => void
+export type RouteHandler = (req: Request, res: ServerResponse) => void | Promise<void>;
 
 
 export interface Route {

@@ -4,7 +4,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/main.js",
-    "dev": "nodemon --exec tsx src/main.ts",
+    "dev": "nodemon",
     "watch": "tsc --watch"
   },
   "keywords": [],
@@ -14,7 +14,6 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "nodemon": "^3.1.14",
-    "ts-node": "^10.9.2",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3"
   },

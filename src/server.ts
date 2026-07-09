@@ -5,21 +5,13 @@ import { Router } from './router.js';
 export interface Request extends IncomingMessage {
     params?: Record<string, string>;
     query?: URLSearchParams;
+    body?: unknown;
 }
-
-
-// const routes = new Map<HttpMethod, Map<string, RouteHandler>>();
-
-const routes: Record<string, Record<HttpMethod, RouteHandler>> = {};
-
-const addRoute = (path: string, method: HttpMethod, handler: RouteHandler): void => {
-    // const _path = path.replace()
-};
 
 export default function () {
     const router = new Router();
 
-    const server = http.createServer((req: Request, res: ServerResponse) => {
+    const server = http.createServer(async (req: Request, res: ServerResponse) => {
         const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
         const method = (req.method as HttpMethod) ?? 'GET';
 
@@ -36,7 +28,7 @@ export default function () {
             req.params = route.params;
             req.query = url.searchParams;
 
-            route.handler(req, res);
+            await route.handler(req, res);
         } catch (e) {
             res.statusCode = 500;
             res.end(JSON.stringify({message: 'Internal Server Error'}));
