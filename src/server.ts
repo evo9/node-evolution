@@ -5,6 +5,7 @@ import { Router } from './router.js';
 export interface Request extends IncomingMessage {
     params?: Record<string, string>;
     query?: URLSearchParams;
+    body?: unknown;
 }
 
 export default function () {
