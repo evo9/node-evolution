@@ -1,6 +1,7 @@
 import { IncomingMessage } from 'node:http';
 import crypto from 'node:crypto';
-import server from './server.js';
+import server, { ErrorHandler, Handler } from './server.js';
+import { HttpError } from './http-error.js';
 
 interface Booking {
     id: string;
@@ -21,7 +22,7 @@ const parseBody = <T>(req: IncomingMessage): Promise<T> => {
             try {
                 resolve(JSON.parse(body));
             } catch (e) {
-                reject('Invalid JSON Body');
+                reject(new HttpError(400, 'Invalid JSON Body'));
             }
         });
     });
@@ -31,69 +32,72 @@ let bookings = new Map<string, Booking>();
 
 const app = server();
 
+const logger: Handler = async (req, res, next) => {
+    const start = Date.now();
+    await next();
+    console.log(`${req.method} ${req.url} → ${res.statusCode} (${Date.now() - start}ms)`);
+};
+
+app.use(logger);
+
+app.use(async (req, res, next) => {
+    if (req.method == 'POST' || req.method == 'PUT' || req.method == 'PATCH') {
+        req.body = await parseBody(req);
+    }
+    await next();
+});
+
+app.use(logger);
+
+const errorHandler: ErrorHandler = async (err, req, res, next) => {
+    const status = err instanceof HttpError ? err.status : 500;
+    const message = err instanceof HttpError ? err.message : 'Internal sever Error';
+    res.status(status).json({message});
+};
+
+app.use(errorHandler);
+
 app.get('/', async (req, res) => {
-    res.end(JSON.stringify('Hello'))
-})
+    res.end(JSON.stringify('Hello'));
+});
 
 app.get('/bookings', async (req, res) => {
-    res.end(JSON.stringify(Array.from(bookings.values())));
+    res.json(Array.from(bookings.values()));
 });
 
 app.post('/bookings', async (req, res) => {
-    try {
-        const body = await parseBody<Omit<Booking, 'id' | 'enabled'>>(req);
-        if (!body.slotId || !body.userId) {
-            res.statusCode = 400;
-            res.end(JSON.stringify({message: 'Invalid booking data'}));
-            return;
-        }
+    const body = req.body as Omit<Booking, 'id' | 'enabled'>;
+    if (!body.slotId || !body.userId) throw new HttpError(400, 'Invalid booking data');
 
-        const existed = Array.from(bookings.values()).find((b) => b.enabled && b.slotId === body.slotId);
-        if (existed) {
-            res.statusCode = 409;
-            res.end(JSON.stringify({message: `Slot #${body.slotId} already booked`}));
-            return;
-        }
+    const existed = Array.from(bookings.values()).find((b) => b.enabled && b.slotId === body.slotId);
+    if (existed) throw new HttpError(409, `Slot #${body.slotId} already booked`);
 
-        const created = {
-            id: crypto.randomUUID(),
-            slotId: body.slotId,
-            userId: body.userId,
-            enabled: true,
-        };
+    const created = {
+        id: crypto.randomUUID(),
+        slotId: body.slotId,
+        userId: body.userId,
+        enabled: true,
+    };
 
-        bookings.set(created.id, created);
+    bookings.set(created.id, created);
 
-        res.statusCode = 201;
-        res.end(JSON.stringify(created));
-    } catch (e) {
-        res.statusCode = 400;
-        res.end(JSON.stringify({message: 'Invalid json body'}));
-    }
+    res.status(201).json(created);
 });
 
 app.get('/bookings/:id', async (req, res) => {
     const id = req.params?.id ?? null;
-    if (!id || !bookings.has(id)) {
-        res.statusCode = 404;
-        res.end(JSON.stringify({message: `Booking #${id} not found`}));
-        return;
-    }
+    if (!id || !bookings.has(id)) throw new HttpError(404, `Booking #${id} not found`);
 
-    res.end(JSON.stringify(bookings.get(id)));
+    res.json(bookings.get(id));
 });
 
 app.post('/bookings/:id/cancel', async (req, res) => {
     const id = req.params?.id ?? null;
-    if (!id || !bookings.has(id)) {
-        res.statusCode = 404;
-        res.end(JSON.stringify({message: `Booking #${id} not found`}));
-        return;
-    }
+    if (!id || !bookings.has(id)) throw new HttpError(404, `Booking #${id} not found`);
 
-    bookings.set(id, {...bookings.get(id)!, enabled: false},);
+    bookings.set(id, {...bookings.get(id)!, enabled: false});
 
-    res.end(JSON.stringify({status: 'OK'}));
+    res.json({status: 'OK'});
 });
 
 app.listen(3035, () => console.log(`Server started at http://localhost:3035`));

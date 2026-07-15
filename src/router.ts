@@ -1,20 +1,17 @@
-import { ServerResponse } from 'node:http';
-import {Request} from './server.js';
+import { Handler, Request } from './server.js';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-export type RouteHandler = (req: Request, res: ServerResponse) => void | Promise<void>;
-
 
 export interface Route {
     path: string;
     method: HttpMethod;
     regex: RegExp;
     params: string[];
-    handler: RouteHandler;
+    handler: Handler;
 }
 
 export interface CurrentRoute {
-    handler: RouteHandler;
+    handler: Handler;
     params: Record<string, string>;
 }
 
@@ -23,7 +20,7 @@ const parameterPattern = '([^/]+)';
 export class Router {
     private readonly _routes: Route[] = [];
 
-    public addRoute(path: string, method: HttpMethod, handler: RouteHandler): void {
+    public addRoute(path: string, method: HttpMethod, handler: Handler): void {
         const {segments, params} = path.split('/').reduce((acc, segment: string) => {
             let _segment = segment;
             if (segment.startsWith(':')) {
